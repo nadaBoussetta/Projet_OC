@@ -7,14 +7,22 @@
 
 ---
 
-### Résultats finaux
+### Résultats finaux Heuristique Simple 
 
 | Métrique | Valeur |
 |----------|--------|
 | Conjectures réfutées | **96 / 100** |
-| Score total | **751.6** |
-| Temps médian | 0.34 s |
-| Temps moyen | 2.83 s |
+| Score total | **867.9** |
+| Temps moyen | 4.04 s |
+
+### Résultats finaux FunSearch 
+
+| Métrique | Valeur |
+|----------|--------|
+| Conjectures réfutées | **96 / 100** |
+| Score total | **778.3** |
+| Temps moyen | 3.11 s |
+
 
 ---
 
@@ -39,15 +47,16 @@ Projet_OC/
 │   └── visualize.py              # Génération des figures (matplotlib)
 ├── benchmark/
 │   └── benchmark.xlsx            # Benchmark des 100 conjectures
-├── experiments/                  # Scripts d'expérimentation
 ├── results/
-│   ├── results_final.json        # Résultats finaux (96/100, score 751.6)
+│   ├── results_final.json
+│   ├── results_funsearch.json
+│   ├── best_score_function.py
+│   ├── groq_generated_functions  
 │   └── figures/                  # Graphiques générés par visualize.py
 ├── requirements.txt
 ├── .env                          # GROQ_API_KEY (optionnel, mode funsearch)
 ├── README.md
 ├── report.pdf
-└── GUIDE_EXECUTION.md
 ```
 
 ## Installation
