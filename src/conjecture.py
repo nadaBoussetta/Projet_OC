@@ -67,6 +67,7 @@ class Conjecture:
 
 
 def load_benchmark(path: str) -> list:
+    """Charge toutes les conjectures depuis le fichier Excel."""
     df = pd.read_excel(path)
     conjectures = []
     for _, row in df.iterrows():

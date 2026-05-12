@@ -1,33 +1,53 @@
 # GraphBench Challenge
 ## Réfutation automatique de conjectures en théorie des graphes
 
-**Master 1 MIAGE – Dépôt final : 9 mai 2026**
+**Master 1 MIAGE – Dépôt final : 9 mai 2026**  
+**Étudiantes :** NADA BOUSSETTA & Lilia Kaci  
+**GitHub :** https://github.com/nadaBoussetta/Projet_OC
+
+---
+
+### Résultats finaux
+
+| Métrique | Valeur |
+|----------|--------|
+| Conjectures réfutées | **96 / 100** |
+| Score total | **751.6** |
+| Temps médian | 0.34 s |
+| Temps moyen | 2.83 s |
 
 ---
 
 ## Description
 
 Ce projet implémente un système automatisé de réfutation de conjectures en théorie des graphes. Il combine :
-- **Partie 1** : Heuristique de recherche locale avec mutations et redémarrages
-- **Partie 2** : Architecture FunSearch – évolution de fonctions de score via LLM (Claude)
+- **Partie 1** : Heuristique de recherche locale avec mutations, recuit simulé et redémarrages
+- **Partie 2** : Architecture FunSearch — évolution de fonctions de score via **Groq LLM** (Llama-3.3-70B)
 
 ## Structure du projet
 
 ```
-graphbench/
-├── src/
-│   ├── conjecture.py      # Chargement et évaluation des conjectures
-│   ├── invariants.py      # Calcul de tous les invariants de graphes
-│   ├── mutations.py       # Générateurs initiaux et mutations locales
-│   ├── heuristic.py       # Partie 1 : heuristique simple
-│   ├── funsearch.py       # Partie 2 : architecture FunSearch
-│   ├── main.py            # Script principal
-│   └── validate.py        # Validation des contre-exemples
+Projet_OC/
+├── src/                          # Code source
+│   ├── conjecture.py             # Chargement et évaluation des conjectures
+│   ├── invariants.py             # Calcul des 25 invariants (lazy, algorithmes exacts)
+│   ├── mutations.py              # Générateurs initiaux et mutations locales
+│   ├── heuristic.py              # Partie 1 : heuristique multi-stratégie (SA)
+│   ├── funsearch.py              # Partie 2 : architecture FunSearch avec Groq LLM
+│   ├── main.py                   # Orchestration CLI
+│   ├── validate.py               # Validation des contre-exemples
+│   └── visualize.py              # Génération des figures (matplotlib)
 ├── benchmark/
-│   └── benchmark.xlsx     # Benchmark des 100 conjectures
-├── results/               # Résultats JSON et fonctions évoluées
+│   └── benchmark.xlsx            # Benchmark des 100 conjectures
+├── experiments/                  # Scripts d'expérimentation
+├── results/
+│   ├── results_final.json        # Résultats finaux (96/100, score 751.6)
+│   └── figures/                  # Graphiques générés par visualize.py
 ├── requirements.txt
-└── README.md
+├── .env                          # GROQ_API_KEY (optionnel, mode funsearch)
+├── README.md
+├── report.pdf
+└── GUIDE_EXECUTION.md
 ```
 
 ## Installation
@@ -36,52 +56,73 @@ graphbench/
 pip install -r requirements.txt
 ```
 
+Créez un fichier `.env` à la racine du projet :
+
+```
+GROQ_API_KEY=gsk_votre_cle_ici
+```
+
 ## Utilisation
 
 ### Partie 1 – Heuristique simple
 ```bash
-cd src
-python main.py --mode simple --time 60
+python src/main.py --mode simple --time 60
 ```
 
-### Partie 2 – Architecture FunSearch
+### Partie 2 – Architecture FunSearch (Groq LLM)
 ```bash
-cd src
-python main.py --mode funsearch --time 60
+python src/main.py --mode funsearch --time 60
 ```
 
 ### Validation des résultats
 ```bash
-cd src
-python validate.py ../results/results_simple.json
+python src/validate.py results/results_final.json
 ```
 
-### Options
+### Génération des figures
+```bash
+python src/visualize.py
+# With results:
+python src/visualize.py --results results/results_final.json
 ```
---mode     simple|funsearch   Mode de recherche (défaut: simple)
---time     60                 Limite de temps par conjecture (secondes)
---benchmark path              Chemin vers le benchmark xlsx
---output   path               Fichier de sortie JSON
+
+### Options `main.py`
+```
+--mode       simple|funsearch   Mode de recherche (défaut: simple)
+--time       60                 Limite de temps par conjecture (secondes)
+--benchmark  path               Chemin vers le benchmark xlsx
+--output     path               Fichier de sortie JSON
+--verbose                       Afficher les logs détaillés
 ```
 
 ## Architecture
 
-### Partie 1 : Heuristique simple
+### Partie 1 : Heuristique multi-stratégie
 
-1. **Génération initiale** : graphes adaptés à la classe (arbres, graphes sans griffe, connexes...)
-2. **Sélection** : tournoi sur une population de graphes scorés
-3. **Mutations** : ajout/suppression d'arêtes/sommets, subdivision, ajout de cliques...
-4. **Réparation** : reconnexion, suppression de cycles (arbres), correction des griffes
-5. **Score** : `violation × 10 + bonus_structurels`
-6. **Redémarrage** : si bloqué après 80 itérations sans amélioration
+La recherche se déroule en 3 phases :
 
-### Partie 2 : FunSearch
+1. **Phase 0 – Graphes spéciaux (~1 s)** : étoiles, chemins, graphes complets, bipartis, Petersen, grilles…  
+2. **Phase 1 – Exploration exhaustive (n=3..11, ~5 s)** : tous les graphes de petite taille  
+3. **Phase 2 – Hill-climbing + Recuit simulé** : population de 15 graphes, sélection par tournoi, liste tabu, redémarrages
 
-Le système fait évoluer automatiquement la fonction de score :
-1. Initialisation avec une fonction de base
-2. Appel à Claude (API) pour proposer des variantes améliorées
-3. Évaluation des nouvelles fonctions sur des cas de test
-4. Sélection des meilleures, répétition (5 itérations)
+Chaque phase est adaptée aux classes de la conjecture (arbre, graphe sans griffe, connexe…).  
+La fonction de score est `violation × 10 + bonus_structurels` avec correction flottante `ε = 1e-9`.
+
+### Partie 2 : FunSearch avec Groq LLM
+
+Le système fait **évoluer automatiquement la fonction de score** en 3 étapes :
+
+1. **Initialisation (Phase 1 – Seeds)** : 10 fonctions de score artisanales couvrant différentes stratégies
+2. **Évolution par LLM (Phase 2 – Groq)** : le modèle `llama-3.3-70b-versatile` génère des variantes en voyant les meilleures fonctions courantes + le contexte de la conjecture
+3. **Combinaisons offline (Phase 3)** : combinaisons pondérées des meilleures fonctions
+
+**Prompt engineering** : le prompt système présente le contexte expert (25 invariants, classes de graphes, format de violation). Le prompt utilisateur inclut les 3 meilleures fonctions courantes, les métriques de la conjecture et les résultats d'évaluation.
+
+**Sandbox sécurisé** : le code généré est exécuté dans un espace restreint sans accès aux modules dangereux (`import`, `open`, `exec`, `subprocess`, `socket`, `os`, `sys`…).
+
+Les fonctions générées sont sauvegardées dans :
+- `results/best_score_function.py` — meilleure fonction retenue
+- `results/groq_generated_functions.py` — tout l'historique Groq
 
 ## Invariants supportés
 
@@ -99,8 +140,8 @@ Format :
 ```json
 {
   "mode": "simple",
-  "total_score": 1234.5,
-  "n_found": 85,
+  "total_score": 38.5,
+  "n_found": 100,
   "n_total": 100,
   "results": [
     {
@@ -119,6 +160,18 @@ Format :
 
 ## Score
 
-- **Contre-exemple trouvé en t secondes** : coût = t
-- **Non trouvé** : coût = 120
-- **Score total** = somme des coûts (à minimiser)
+- **Contre-exemple trouvé en t secondes** : coût = t  
+- **Non trouvé** : coût = 120  
+- **Score total** = somme des coûts (à minimiser, minimum théorique = 0)
+
+## Figures générées (`python visualize.py`)
+
+| Fichier | Description |
+|---------|-------------|
+| `results/figures/fig1_benchmark_overview.png` | Distribution des classes, signes, degrés et invariants |
+| `results/figures/fig2_funsearch_evolution.png` | Courbe d'évolution FunSearch (seed → Groq → combos) |
+| `results/figures/fig3_invariant_network.png` | Réseau de dépendances entre invariants |
+| `results/figures/fig4_results_simple.png` | Analyse des résultats mode simple |
+| `results/figures/fig4_results_funsearch.png` | Analyse des résultats mode FunSearch |
+| `results/figures/fig5_comparison.png` | Comparaison simple vs FunSearch |
+| `results/figures/fig6_funsearch_architecture.png` | Schéma de l'architecture FunSearch |
